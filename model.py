@@ -18,17 +18,44 @@ class CVAE(L.LightningModule):
         self.lr = lr
 
         # TODO
-        self.encoder_net = nn.Sequential(
-            nn.Linear(784 + self.cond_dim, 400),
+        # 인코더
+        self.encoder_mlp = nn.Sequential(
+            nn.Linear(784 + self.cond_dim, 512),
+            nn.LayerNorm(512),
+            nn.ReLU(),
+            nn.Dropout(0.25),
+
+            nn.Linear(512, 256),
+            nn.LayerNorm(256),
+            nn.ReLU(),
+            nn.Dropout(0.25),
+
+            nn.Linear(256, 128),
+            nn.LayerNorm(128),
             nn.ReLU()
         )
-        self.fc_mu = nn.Linear(400, self.n_dim)
-        self.fc_logvar = nn.Linear(400, self.n_dim)
 
-        self.decoder_net = nn.Sequential(
-            nn.Linear(self.n_dim + self.cond_dim, 400),
+        self.fc_mean = nn.Linear(128, self.n_dim)
+        self.fc_logvar = nn.Linear(128, self.n_dim)
+
+        #디코더
+        self.decoder_mlp = nn.Sequential(
+            nn.Linear(self.n_dim + self.cond_dim, 128),
+            nn.LayerNorm(128),
             nn.ReLU(),
-            nn.Linear(400, 784),
+            nn.Dropout(0.25),
+
+            nn.Linear(128, 256),
+            nn.LayerNorm(256),
+            nn.ReLU(),
+            nn.Dropout(0.25),
+
+            nn.Linear(256, 512),
+            nn.LayerNorm(512),
+            nn.ReLU(),
+            nn.Dropout(0.25),
+
+            nn.Linear(512, 784),
             nn.Sigmoid()
         )
 
@@ -40,10 +67,10 @@ class CVAE(L.LightningModule):
         # TODO
         # return mean, log_var
         xc = torch.cat([x_flattened, c], dim=1)
-        h = self.encoder_net(xc)
-        mu = self.fc_mu(h)
+        h = self.encoder_mlp(xc)
+        mean = self.fc_mean(h)
         logvar = self.fc_logvar(h)
-        return mu, logvar
+        return mean, logvar
 
     def decoder(self, z, c):
         c = F.one_hot(c, num_classes=10)        # batch_size, 10
@@ -51,7 +78,7 @@ class CVAE(L.LightningModule):
         
         # TODO
         # return x_pred
-        x_pred = self.decoder_net(zc)
+        x_pred = self.decoder_mlp(zc)
         return x_pred
     
 
@@ -72,9 +99,9 @@ class CVAE(L.LightningModule):
     def forward(self, x, c):
         # TODO        
         # return x_pred
-        mu, logvar = self.encoder(x, c)
+        mean, logvar = self.encoder(x, c)
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
-        z = mu + eps * std
+        z = mean + eps * std
         x_pred = self.decoder(z, c)
         return x_pred

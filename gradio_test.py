@@ -46,7 +46,7 @@ def generate_image(cls, z0, z1):
     
     #추가
     img_tensor = x_pred[0].view(1, 28, 28)
-    #변경경
+    #변경
     gen_img = to_pil_image(img_tensor)
 
     return gen_img
